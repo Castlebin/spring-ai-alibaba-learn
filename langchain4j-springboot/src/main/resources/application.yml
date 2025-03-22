@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: langchain4j-springboot
+
+langchain4j:
+  community:
+    dashscope:
+      chat-model:
+        model-name: qwen-plus          # 模型名称
+        api-key: sk-2833a07601ef4c6bbed1fb41c50c2fda  # API密钥
+
+
