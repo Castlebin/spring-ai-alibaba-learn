@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.ollama.OllamaChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 public class Test01 {
@@ -35,6 +36,16 @@ public class Test01 {
         ChatLanguageModel model = QwenChatModel.builder()
                 .apiKey("sk-2833a07601ef4c6bbed1fb41c50c2fda")
                 .modelName("qwen-max")
+                .build();
+        String answer = model.chat("你好，你是谁？你能做些什么？");
+        System.out.println(answer);
+    }
+
+    @Test
+    void testCharOllama() { // Ollama
+        ChatLanguageModel model = OllamaChatModel.builder()
+                .baseUrl("http://localhost:11434")
+                .modelName("deepseek-r1:1.5b")
                 .build();
         String answer = model.chat("你好，你是谁？你能做些什么？");
         System.out.println(answer);
