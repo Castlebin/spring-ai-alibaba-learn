@@ -1,0 +1,3 @@
+[submodule "langchain4j-examples"]
+	path = langchain4j-examples
+	url = git@github.com:langchain4j/langchain4j-examples.git
