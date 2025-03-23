@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import com.heller.lj.service.FunctionCallService;
+
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -36,7 +38,8 @@ public class AiAssistant {
     }
 
     @Bean
-    public Assistant assistant(ChatLanguageModel qwenChatModel, StreamingChatLanguageModel qwenStreamingChatModel) {
+    public Assistant assistant(ChatLanguageModel qwenChatModel, StreamingChatLanguageModel qwenStreamingChatModel,
+            FunctionCallService functionCallService) {
         // 使用 ChatMemory (存储对话的上下文，默认是在内存中)
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10); // 设置 最多存储 10 条对话
 
@@ -44,6 +47,7 @@ public class AiAssistant {
                 .chatLanguageModel(qwenChatModel)
                 .streamingChatLanguageModel(qwenStreamingChatModel)
                 .chatMemory(chatMemory) // 设置对话的上下文，使用 ChatMemory 来保存对话的上下文
+                .tools(functionCallService) // 设置 Function Call 工具，这里可以设置多个
                 .build();
 
         return assistant;

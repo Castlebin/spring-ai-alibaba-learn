@@ -78,6 +78,11 @@ public class ChatController {
      * 继续访问：http://localhost:8080/ai/chat-with-context?message=给我讲下英语的时态
      *
      * 可以看到现在的对话是有上下文的 （但是只有一个上下文，所有的对话都是共用这个上下文的）
+     *
+     * 测试使用 Function Call
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=北京有多少个叫张三的人？
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=欧洲有多少个叫张三的人？
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=上海有多少个叫李四的人？
      */
     @RequestMapping("/chat-with-context")
     public Flux<String> streamChatWithContext(@RequestParam(defaultValue = "你是谁？") String message) {
