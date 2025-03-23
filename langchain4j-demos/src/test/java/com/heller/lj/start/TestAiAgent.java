@@ -19,35 +19,33 @@ import dev.langchain4j.service.V;
 
 public class TestAiAgent {
 
-    private static ChatLanguageModel openai;
-    private static ChatLanguageModel qwen;
-    private static ChatLanguageModel deepseek;
+    private static AiAgent agent;
 
     @BeforeAll
     static void init() {
         // OpenAI
-        openai = OpenAiChatModel.builder()
+        // 使用 demo api key
+        ChatLanguageModel openai = OpenAiChatModel.builder()
                 .baseUrl("http://langchain4j.dev/demo/openai/v1")
                 .apiKey("demo")     // 使用 demo api key
                 .modelName("gpt-4o-mini")
                 .build();
 
         // 通义千问
-        qwen = QwenChatModel.builder()
+        ChatLanguageModel qwen = QwenChatModel.builder()
                 .apiKey("sk-2833a07601ef4c6bbed1fb41c50c2fda")
                 .modelName("qwen-max")
                 .build();
 
         // deepseek
-        deepseek = OpenAiChatModel.builder()
+        // 使用 硅基流动 的 api 地址
+        // api key
+        ChatLanguageModel deepseek = OpenAiChatModel.builder()
                 .baseUrl("https://api.siliconflow.cn/v1")  // 使用 硅基流动 的 api 地址
                 .apiKey("sk-huuqagfsszvnqkhqnxvdadkmrxvpvhokenxvxdwysxdpzkfg")     // api key
                 .modelName("deepseek-ai/DeepSeek-V3")
                 .build();
-    }
 
-    @Test
-    void testChat() {
         AiAgentDispatcher dispatcher = AiServices.builder(AiAgentDispatcher.class)
                 .chatLanguageModel(openai)
                 .build();
@@ -58,20 +56,30 @@ public class TestAiAgent {
                 .chatLanguageModel(qwen)
                 .build();
 
-        AiAgent agent = new AiAgent(dispatcher, chatBot, codingAssistant);
+        agent = new AiAgent(dispatcher, chatBot, codingAssistant);
+    }
 
-        agent.handle("请给我讲一个笑话，50个字以内");
+    @Test
+    void testChat() {
+        String response = agent.handle("请给我讲一个笑话，50个字以内");
+        System.out.println(response);
         System.out.println("-----------------");
-        agent.handle("请给写一个快速排序的代码，使用 Java 语言编写");
+
+        String response1 = agent.handle("请给写一个快速排序的代码，使用 Java 语言编写");
+        System.out.println(response1);
         System.out.println("-----------------");
-        agent.handle("给我画一只猫");
+
+        String response2 = agent.handle("给我画一只猫");
+        System.out.println(response2);
         System.out.println("-----------------");
-        agent.handle("你是谁？");
+
+        String response3 = agent.handle("你是谁？你能干些什么？");
+        System.out.println(response3);
     }
 
     // 一个简单的 AI Agent ，将各种 AI 助手组合在一起
     // 通过任务分发器来分发任务
-    class AiAgent {
+    private static class AiAgent {
         private final AiAgentDispatcher dispatcher;
         private final ChatBot chatBot;
         private final CodingAssistant codingAssistant;
@@ -83,8 +91,10 @@ public class TestAiAgent {
         }
 
         public String handle(String message) {
+            // dispathcher 来识别任务类型、分配任务给不同的 AI 来执行
             TaskType taskType = dispatcher.getTaskType(message);
             System.out.println("任务类型: " + taskType);
+
             return switch (taskType) {
                 case CHAT -> chatBot.chat(message);
                 case CODING -> codingAssistant.chat(message);
