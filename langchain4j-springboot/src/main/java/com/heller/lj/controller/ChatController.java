@@ -1,5 +1,7 @@
 package com.heller.lj.controller;
 
+import java.time.LocalDateTime;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -9,7 +11,6 @@ import com.heller.lj.config.AiAssistant.Assistant;
 import com.heller.lj.config.AiAssistant.AssistantUnique;
 import com.heller.lj.config.AiAssistant.AssistantUniqueRedis;
 
-import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenStreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -83,10 +84,16 @@ public class ChatController {
      * 访问地址：http://localhost:8080/ai/chat-with-context?message=北京有多少个叫张三的人？
      * 访问地址：http://localhost:8080/ai/chat-with-context?message=欧洲有多少个叫张三的人？
      * 访问地址：http://localhost:8080/ai/chat-with-context?message=上海有多少个叫李四的人？
+     *
+     * 测试 自定义的票务助手 （使用了 SystemMessage 和 Function Call）
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=你好
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=我想退票
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=123456，张三
+     *
      */
     @RequestMapping("/chat-with-context")
     public Flux<String> streamChatWithContext(@RequestParam(defaultValue = "你是谁？") String message) {
-        TokenStream tokenStream = assistant.chatStream(message);
+        TokenStream tokenStream = assistant.chatStream(message, LocalDateTime.now().toString());
 
         return Flux.create(sink -> {
             tokenStream.onPartialResponse(partialResponse -> sink.next(partialResponse))

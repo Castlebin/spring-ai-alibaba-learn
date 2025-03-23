@@ -12,8 +12,10 @@ import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.MemoryId;
+import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 
 @Configuration
@@ -23,6 +25,10 @@ public class AiAssistant {
         String chat(String message); // 普通的对话
 
         TokenStream chatStream(String message); // 流式响应的对话
+
+        // 票务助手 ( 使用 @SystemMessage 来设置系统预定义的提示词 )
+        @SystemMessage("你是 九州航空公司 的票务助手，你正在使用在线聊天的方式给用户提供服务。你必须以友好、乐于助人且愉快的方式来回答客户的问题。你可以帮助用户查询和取消订单。在为用户提供订单服务时，必须让用户提供姓名和订单号。用户必须讲中文。今天的日期是 {current_date}。")
+        TokenStream chatStream(@UserMessage String userMessage, @V("current_date") String currentDate);
     }
 
     public interface AssistantUnique {
