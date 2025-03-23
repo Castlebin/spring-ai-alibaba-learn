@@ -1,21 +1,36 @@
 package com.heller.lj.controller;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.heller.lj.config.AiAssistant.AiRAGAssitant;
 import com.heller.lj.config.AiAssistant.Assistant;
 import com.heller.lj.config.AiAssistant.AssistantUnique;
 import com.heller.lj.config.AiAssistant.AssistantUniqueRedis;
 
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenStreamingChatModel;
+import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentParser;
+import dev.langchain4j.data.document.loader.ClassPathDocumentLoader;
+import dev.langchain4j.data.document.parser.TextDocumentParser;
+import dev.langchain4j.data.document.splitter.DocumentByCharacterSplitter;
+import dev.langchain4j.data.document.splitter.DocumentByRegexSplitter;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.service.TokenStream;
+import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import jakarta.annotation.PostConstruct;
 import reactor.core.publisher.Flux;
 
 @RestController
@@ -29,11 +44,24 @@ public class ChatController {
     private QwenStreamingChatModel qwenStreamingChatModel;
 
     @Autowired
+    private EmbeddingStore embeddingStore;
+    @Autowired
+    private EmbeddingModel embeddingModel;
+
+    @Autowired
     private Assistant assistant;
     @Autowired
     private AssistantUnique assistantUnique;
     @Autowired
     private AssistantUniqueRedis assistantUniqueRedis;
+
+    @Autowired
+    private AiRAGAssitant aiRAGAssitant;
+
+    @PostConstruct
+    public void init() {
+        initRAGStore();
+    }
 
     /**
      * 使用普通响应
@@ -166,6 +194,72 @@ public class ChatController {
                     }).onError(sink::error)
                     .start();
         });
+    }
+
+
+    /**
+     * 使用 RAG 增强过的 对话
+     * 访问地址：http://localhost:8080/ai/chat-rag?message=非自愿退票？
+     */
+    @RequestMapping("/chat-rag")
+    public Flux<String> streamChatRAG(@RequestParam(defaultValue = "你是谁？") String message,
+            @RequestParam(defaultValue = "1") String memoryId) {
+        TokenStream tokenStream = aiRAGAssitant.chatStream(memoryId, message);
+
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse(partialResponse -> sink.next(partialResponse))
+                    .onCompleteResponse(completeResponse -> {
+                        sink.complete();
+                    }).onError(sink::error)
+                    .start();
+        });
+    }
+
+    /**
+     * RAG 数据库的初始化，从文件系统中加载了原始知识库数据，存放到向量数据库中
+     * 简单的演示了一下向量数据库的使用，使用的是 InMemoryEmbeddingStore （内存中）
+     */
+    public void initRAGStore() {
+        // 从文件系统中加载原始知识库数据
+        List<Document> documents = getKnowledge();
+        // 使用分割器将文档 分割 成多个文本片段
+        List<TextSegment> segments = splitDocuments(documents);
+
+        // 0. 利用 向量模型（Embedding 模型） 将知识库转化为 Embedding 向量，存放到向量数据库中
+        // EMBEDDING_STORE.addAll(EMBEDDING_MODEL.embedAll(segments).content());  (可以直接使用这句将全部数据转化为向量并添加到向量数据库中)
+        for (TextSegment segment : segments) {
+            Embedding embedding = embeddingModel.embed(segment).content();
+            embeddingStore.add(embedding, segment);
+        }
+    }
+
+    /**
+     * 使用文件系统作为知识库数据来源
+     */
+    private static List<Document> getKnowledge() {
+        // 使用 ClassPathDocumentLoader 来加载文档，使用 TextDocumentParser 来解析文档
+        DocumentParser documentParser = new TextDocumentParser();
+        List<Document> documents = ClassPathDocumentLoader.loadDocumentsRecursively("docs/", documentParser);
+        return documents;
+    }
+
+    private static List<TextSegment> splitDocuments(List<Document> documents) {
+        // 使用 某个文本分割器 来将文档分割成多个文本片段 （分块  chunk ）
+        // 这里我们使用的是 DocumentByRegexSplitter 来分割文档
+        DocumentByRegexSplitter splitter = new DocumentByRegexSplitter(
+                "\\n\\d+\\.", // 正则表达式
+                "\n",  // 保留换行符
+                120, // 每个文本片段的最大长度
+                10, // 允许重叠的最大字符数
+                new DocumentByCharacterSplitter(100, 20) // 子分割器
+        );
+
+        List<TextSegment> result = new ArrayList<>();
+        for (Document document : documents) {
+            List<TextSegment> segments = splitter.split(document);
+            result.addAll(segments);
+        }
+        return result;
     }
 
 }

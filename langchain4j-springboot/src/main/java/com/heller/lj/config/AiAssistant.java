@@ -10,13 +10,19 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
+import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
+import jakarta.annotation.PostConstruct;
 
 @Configuration
 public class AiAssistant {
@@ -27,7 +33,9 @@ public class AiAssistant {
         TokenStream chatStream(String message); // 流式响应的对话
 
         // 票务助手 ( 使用 @SystemMessage 来设置系统预定义的提示词 )
-        @SystemMessage("你是 九州航空公司 的票务助手，你正在使用在线聊天的方式给用户提供服务。你必须以友好、乐于助人且愉快的方式来回答客户的问题。你可以帮助用户查询和取消订单。在为用户提供订单服务时，必须让用户提供姓名和订单号。用户必须讲中文。今天的日期是 {current_date}。")
+        @SystemMessage("你是 九州航空公司 "
+                +
+                "的票务助手，你正在使用在线聊天的方式给用户提供服务。你必须以友好、乐于助人且愉快的方式来回答客户的问题。你可以帮助用户查询和取消订单。在为用户提供订单服务时，必须让用户提供姓名和订单号。用户必须讲中文。今天的日期是 {current_date}。")
         TokenStream chatStream(@UserMessage String userMessage, @V("current_date") String currentDate);
     }
 
@@ -38,6 +46,12 @@ public class AiAssistant {
     }
 
     public interface AssistantUniqueRedis {
+        String chat(@MemoryId String memoryId, @UserMessage String message); // 普通的对话
+
+        TokenStream chatStream(@MemoryId String memoryId, @UserMessage String message); // 流式响应的对话
+    }
+
+    public interface AiRAGAssitant {
         String chat(@MemoryId String memoryId, @UserMessage String message); // 普通的对话
 
         TokenStream chatStream(@MemoryId String memoryId, @UserMessage String message); // 流式响应的对话
@@ -60,7 +74,8 @@ public class AiAssistant {
     }
 
     @Bean
-    public AssistantUnique assistantUnique(ChatLanguageModel qwenChatModel, StreamingChatLanguageModel qwenStreamingChatModel) {
+    public AssistantUnique assistantUnique(ChatLanguageModel qwenChatModel,
+            StreamingChatLanguageModel qwenStreamingChatModel) {
         AssistantUnique assistant = AiServices.builder(AssistantUnique.class)  // 帮助生成一个 AssitantUnique 的动态代理
                 .chatLanguageModel(qwenChatModel)
                 .streamingChatLanguageModel(qwenStreamingChatModel)
@@ -74,7 +89,8 @@ public class AiAssistant {
     }
 
     @Bean
-    public AssistantUniqueRedis assistantRedis(ChatLanguageModel qwenChatModel, StreamingChatLanguageModel qwenStreamingChatModel,
+    public AssistantUniqueRedis assistantRedis(ChatLanguageModel qwenChatModel,
+            StreamingChatLanguageModel qwenStreamingChatModel,
             RedisTemplate redisTemplate) {
         // 使用 RedisChatMemoryStore (存储对话的上下文，默认是在内存中)
         ChatMemoryStore chatMemory = new RedisChatMemoryStore(redisTemplate);
@@ -90,6 +106,43 @@ public class AiAssistant {
                 .build();
 
         return assistantRedis;
+    }
+
+    @Bean
+    public AiRAGAssitant aiRAGAssitant(ChatLanguageModel qwenChatModel,
+            StreamingChatLanguageModel qwenStreamingChatModel,
+            ContentRetriever contentRetriever,
+            RedisTemplate redisTemplate) {
+        // 使用 RedisChatMemoryStore (存储对话的上下文，默认是在内存中)
+        ChatMemoryStore chatMemory = new RedisChatMemoryStore(redisTemplate);
+
+        return AiServices.builder(AiRAGAssitant.class)
+                .chatLanguageModel(qwenChatModel)
+                .streamingChatLanguageModel(qwenStreamingChatModel)
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+                        .maxMessages(10)
+                        .id(memoryId)
+                        .chatMemoryStore(chatMemory)
+                        .build())
+                .contentRetriever(
+                        contentRetriever)  // 使用的 内容检索器 （ RAG ）  ，对话时会自动的去 contentRetriever
+                // 中检索相关的信息，并且跟用户输入的信息结合起来，提供给大语言模型进行生成
+                .build();
+    }
+
+    @Bean
+    public ContentRetriever contentRetriever(EmbeddingStore embeddingStore, EmbeddingModel embeddingModel) {
+        return EmbeddingStoreContentRetriever.builder()
+                .embeddingStore(embeddingStore)
+                .embeddingModel(embeddingModel)
+                .maxResults(3) // 返回前 3 个最相似的结果
+                .minScore(0.7) // 最小相似度分数 （小于它的将被过滤掉）
+                .build();
+    }
+
+    @Bean
+    public EmbeddingStore embeddingStore() {
+        return new InMemoryEmbeddingStore<>();
     }
 
 }

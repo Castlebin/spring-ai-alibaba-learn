@@ -18,5 +18,7 @@ langchain4j:
       streaming-chat-model:
         model-name: qwen-plus          # 模型名称
         api-key: sk-2833a07601ef4c6bbed1fb41c50c2fda  # API密钥
-
+      embedding-model:
+        model-name:           # 这里使用默认的不指定
+        api-key: sk-2833a07601ef4c6bbed1fb41c50c2fda  # API密钥
 
