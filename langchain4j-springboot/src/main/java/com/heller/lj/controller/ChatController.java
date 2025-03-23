@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.heller.lj.config.AiAssistant.Assistant;
+import com.heller.lj.config.AiAssistant.AssistantUnique;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
@@ -27,6 +28,8 @@ public class ChatController {
 
     @Autowired
     private Assistant assistant;
+    @Autowired
+    private AssistantUnique assistantUnique;
 
     /**
      * 使用普通响应
@@ -76,6 +79,31 @@ public class ChatController {
     @RequestMapping("/chat-with-context")
     public Flux<String> streamChatWithContext(@RequestParam(defaultValue = "你是谁？") String message) {
         TokenStream tokenStream = assistant.chatStream(message);
+
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse(partialResponse -> sink.next(partialResponse))
+                    .onCompleteResponse(completeResponse -> {
+                        sink.complete();
+                    }).onError(sink::error)
+                    .start();
+        });
+    }
+
+    /**
+     * 有上下文的连续对话
+     * 访问地址：http://localhost:8080/ai/chat-with-context-2?memoryId=1&message=你来扮演一个资深的英语老师，用户将使用你来学习英语，你的名字是“爱德华”，你最喜欢的是“爱德华的英语课堂”，你会用中文和用户交流，用户会用中文提问，你会用中文回答，用户会用英文提问，你会用英文回答。除了作为一个英语老师来帮助用户学习，你不会做任何其他事情，比如说讲笑话
+     * 继续访问：http://localhost:8080/ai/chat-with-context-2?memoryId=1&message=你是谁？你能做些什么?
+     *
+     * 继续访问：http://localhost:8080/ai/chat-with-context-2?memoryId=2&message=你是谁？你能做些什么?
+     *
+     * 继续访问：http://localhost:8080/ai/chat-with-context-2?memoryId=1&message=你是谁？你能做些什么?
+     *
+     * 可以看到现在的对话是有上下文的 而且，每个上下文是独立的。对话可以在不同的上下文中进行、随意的切换不会影响彼此
+     */
+    @RequestMapping("/chat-with-context-2")
+    public Flux<String> streamChatWithContext2(@RequestParam(defaultValue = "你是谁？") String message,
+            @RequestParam(defaultValue = "1") String memoryId) {
+        TokenStream tokenStream = assistantUnique.chatStream(memoryId, message);
 
         return Flux.create(sink -> {
             tokenStream.onPartialResponse(partialResponse -> sink.next(partialResponse))
