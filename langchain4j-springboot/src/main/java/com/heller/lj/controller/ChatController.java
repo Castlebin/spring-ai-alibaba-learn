@@ -84,15 +84,28 @@ public class ChatController {
      * 访问地址：http://localhost:8080/ai/chat-with-context?message=北京有多少个叫张三的人？
      * 访问地址：http://localhost:8080/ai/chat-with-context?message=欧洲有多少个叫张三的人？
      * 访问地址：http://localhost:8080/ai/chat-with-context?message=上海有多少个叫李四的人？
-     *
-     * 测试 自定义的票务助手 （使用了 SystemMessage 和 Function Call）
-     * 访问地址：http://localhost:8080/ai/chat-with-context?message=你好
-     * 访问地址：http://localhost:8080/ai/chat-with-context?message=我想退票
-     * 访问地址：http://localhost:8080/ai/chat-with-context?message=123456，张三
-     *
      */
     @RequestMapping("/chat-with-context")
     public Flux<String> streamChatWithContext(@RequestParam(defaultValue = "你是谁？") String message) {
+        TokenStream tokenStream = assistant.chatStream(message);
+
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse(partialResponse -> sink.next(partialResponse))
+                    .onCompleteResponse(completeResponse -> {
+                        sink.complete();
+                    }).onError(sink::error)
+                    .start();
+        });
+    }
+
+    /**
+     * 测试 自定义的票务助手 （使用了 SystemMessage 和 Function Call）
+     * 访问地址：http://localhost:8080/ai/ticket-assistant?message=你好
+     * 访问地址：http://localhost:8080/ai/ticket-assistant?message=我想退票
+     * 访问地址：http://localhost:8080/ai/ticket-assistant?message=123456，张三
+     */
+    @RequestMapping("/ticket-assistant")
+    public Flux<String> ticketAssistant(@RequestParam(defaultValue = "你是谁？") String message) {
         TokenStream tokenStream = assistant.chatStream(message, LocalDateTime.now().toString());
 
         return Flux.create(sink -> {
