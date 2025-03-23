@@ -1,6 +1,6 @@
 [submodule "langchain4j-examples"]
 	path = langchain4j-examples
-	url = git@github.com:langchain4j/langchain4j-examples.git
+	url = git@github.com:Castlebin/langchain4j-examples.git
 [submodule "langchain4j-course"]
 	path = langchain4j-course
-	url = git@github.com:pig-mesh/langchain4j-course.git
+	url = git@github.com:Castlebin/langchain4j-course.git
