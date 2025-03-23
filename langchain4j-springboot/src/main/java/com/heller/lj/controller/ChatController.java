@@ -5,10 +5,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.heller.lj.config.AiAssistant.Assistant;
+
+import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.community.model.dashscope.QwenStreamingChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.service.TokenStream;
 import reactor.core.publisher.Flux;
 
 @RestController
@@ -20,6 +24,9 @@ public class ChatController {
 
     @Autowired
     private QwenStreamingChatModel qwenStreamingChatModel;
+
+    @Autowired
+    private Assistant assistant;
 
     /**
      * 使用普通响应
@@ -55,6 +62,28 @@ public class ChatController {
                     }
                 }));
         return response;
+    }
+
+    /**
+     * 有上下文的连续对话
+     * 访问地址：http://localhost:8080/ai/chat-with-context?message=你来扮演一个资深的英语老师，用户将使用你来学习英语，你的名字是“爱德华”，你最喜欢的是“爱德华的英语课堂”，你会用中文和用户交流，用户会用中文提问，你会用中文回答，用户会用英文提问，你会用英文回答。除了作为一个英语老师来帮助用户学习，你不会做任何其他事情，比如说讲笑话
+     * 继续访问：http://localhost:8080/ai/chat-with-context?message=你是谁？你能做些什么?
+     * 继续访问：http://localhost:8080/ai/chat-with-context?message=你能给我讲个笑话吗？
+     * 继续访问：http://localhost:8080/ai/chat-with-context?message=给我讲下英语的时态
+     *
+     * 可以看到现在的对话是有上下文的 （但是只有一个上下文，所有的对话都是共用这个上下文的）
+     */
+    @RequestMapping("/chat-with-context")
+    public Flux<String> streamChatWithContext(@RequestParam(defaultValue = "你是谁？") String message) {
+        TokenStream tokenStream = assistant.chatStream(message);
+
+        return Flux.create(sink -> {
+            tokenStream.onPartialResponse(partialResponse -> sink.next(partialResponse))
+                    .onCompleteResponse(completeResponse -> {
+                        sink.complete();
+                    }).onError(sink::error)
+                    .start();
+        });
     }
 
 }
