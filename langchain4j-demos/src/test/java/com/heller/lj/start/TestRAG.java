@@ -1,6 +1,7 @@
 package com.heller.lj.start;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -62,6 +63,8 @@ public class TestRAG {
         // 0. 将用户输入的文本转化为向量 （要使用同样的 Embedding 模型）
         String userInput = "退票需要多少钱？";
         Embedding userEmbedding = EMBEDDING_MODEL.embed(userInput).content();
+        // 这里我们可以输出一下用户输入转化成的向量
+        // System.out.println(Arrays.toString(userEmbedding.vector()));
 
         // 1. 检索：从知识库中检索出与用户输入相关的信息
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
