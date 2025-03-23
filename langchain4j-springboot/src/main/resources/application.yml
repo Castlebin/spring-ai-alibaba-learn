@@ -1,6 +1,13 @@
 spring:
   application:
     name: langchain4j-springboot
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password:
+      database: 0
+
 
 langchain4j:
   community:

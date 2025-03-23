@@ -2,6 +2,7 @@ package com.heller.lj.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -11,6 +12,7 @@ import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 
 @Configuration
 public class AiAssistant {
@@ -22,6 +24,12 @@ public class AiAssistant {
     }
 
     public interface AssistantUnique {
+        String chat(@MemoryId String memoryId, @UserMessage String message); // 普通的对话
+
+        TokenStream chatStream(@MemoryId String memoryId, @UserMessage String message); // 流式响应的对话
+    }
+
+    public interface AssistantUniqueRedis {
         String chat(@MemoryId String memoryId, @UserMessage String message); // 普通的对话
 
         TokenStream chatStream(@MemoryId String memoryId, @UserMessage String message); // 流式响应的对话
@@ -53,6 +61,25 @@ public class AiAssistant {
                 .build();
 
         return assistant;
+    }
+
+    @Bean
+    public AssistantUniqueRedis assistantRedis(ChatLanguageModel qwenChatModel, StreamingChatLanguageModel qwenStreamingChatModel,
+            RedisTemplate redisTemplate) {
+        // 使用 RedisChatMemoryStore (存储对话的上下文，默认是在内存中)
+        ChatMemoryStore chatMemory = new RedisChatMemoryStore(redisTemplate);
+
+        AssistantUniqueRedis assistantRedis = AiServices.builder(AssistantUniqueRedis.class)  // 帮助生成一个 Assistant 的动态代理
+                .chatLanguageModel(qwenChatModel)
+                .streamingChatLanguageModel(qwenStreamingChatModel)
+                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+                        .maxMessages(10)
+                        .id(memoryId)
+                        .chatMemoryStore(chatMemory) // 设置对话的上下文，使用 RedisChatMemoryStore 来保存对话的上下文
+                        .build()) // 设置对话的上下文，使用 ChatMemory 来保存对话的上下文。使用 memoryId 来区分不同的对话
+                .build();
+
+        return assistantRedis;
     }
 
 }
