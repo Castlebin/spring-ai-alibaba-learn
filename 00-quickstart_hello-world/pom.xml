@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.heller</groupId>
-        <artifactId>spring-ai-alibaba-demos</artifactId>
+        <artifactId>spring-ai-alibaba-learn</artifactId>
         <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>

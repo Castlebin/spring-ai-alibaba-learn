@@ -32,7 +32,7 @@ public class HelloworldController {
                 // 实现 Chat Memory 的 Advisor
                 // 在使用 Chat Memory 时，需要指定对话 ID，以便 Spring AI 处理上下文。
                 .defaultAdvisors(
-                        new MessageChatMemoryAdvisor(new InMemoryChatMemory())
+                        new MessageChatMemoryAdvisor(new InMemoryChatMemory()) // 使用内存对话
                 )
                 // 实现 Logger 的 Advisor
                 .defaultAdvisors(
